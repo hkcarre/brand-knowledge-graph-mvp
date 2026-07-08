@@ -310,6 +310,14 @@ Allow: /
 Sitemap: {base_url}/sitemap.xml
 """
 
+@app.get("/BingSiteAuth.xml")
+@app.get("/bingsiteauth.xml")
+async def bing_site_auth():
+    xml = """<users>
+    <user>FB8D688F880AA656C3B5C512F8AEF3FF</user>
+</users>"""
+    return PlainTextResponse(xml, media_type="application/xml")
+
 @app.get("/sitemap.xml")
 async def sitemap_xml(request: Request):
     base_url = str(request.base_url).rstrip("/")
