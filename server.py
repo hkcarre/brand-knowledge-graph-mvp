@@ -27,6 +27,38 @@ def init_db():
 
 init_db()
 
+import time
+from collections import defaultdict
+
+class RateLimiter:
+    def __init__(self, requests_limit: int = 100, window_seconds: int = 60):
+        self.limit = requests_limit
+        self.window = window_seconds
+        self.history = defaultdict(list)
+        
+    def is_allowed(self, ip: str) -> bool:
+        now = time.time()
+        # Clean history and keep only timestamps within the window
+        self.history[ip] = [t for t in self.history[ip] if now - t < self.window]
+        if len(self.history[ip]) >= self.limit:
+            return False
+        self.history[ip].append(now)
+        return True
+
+limiter = RateLimiter(requests_limit=100, window_seconds=60)
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    ip = request.client.host if request.client else "127.0.0.1"
+    # Allow full access to local test queries but limit public client IPs
+    if ip != "127.0.0.1" and not limiter.is_allowed(ip):
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many requests. Rate limit exceeded (100 reqs/min)."}
+        )
+    response = await call_next(request)
+    return response
+
 # List of known AI crawler User-Agents and identifiers
 AI_CRAWLERS = {
     "gptbot": "ChatGPT (OpenAI)",

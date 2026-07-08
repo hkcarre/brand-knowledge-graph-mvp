@@ -332,6 +332,27 @@ def save_to_db(result: AwardsExtractionResult, source_url: str, db_path: str = "
     conn.close()
     print(f"Successfully processed and synchronized {inserted_count} Cannes Lions accolades to local SQLite.")
 
+def run_evaluations(result: AwardsExtractionResult, year: int):
+    """Runs data quality evaluations on the extracted entities before database insertion."""
+    print(f"--- Running Data Quality Evals for {year} ---")
+    if not result.winners:
+        raise ValueError(f"Eval Failure: No winners extracted for year {year}")
+        
+    short_descriptions = 0
+    for idx, winner in enumerate(result.winners):
+        # 1. Length check for description
+        desc = winner.campaign_description or ""
+        if len(desc) < 20:
+            short_descriptions += 1
+            
+        # 2. Entity checks
+        if not winner.brand_name.strip():
+            raise ValueError(f"Eval Failure: Missing brand name at index {idx}")
+        if not winner.campaign_title.strip():
+            raise ValueError(f"Eval Failure: Missing campaign title at index {idx}")
+            
+    print(f"✓ All {len(result.winners)} records passed structure and completeness checks. (Short desc warnings: {short_descriptions})")
+
 if __name__ == "__main__":
     if not GEMINI_API_KEY:
         print("Error: GEMINI_API_KEY environment variable is not set.")
@@ -355,6 +376,9 @@ if __name__ == "__main__":
             # 3. Parse with LLM
             extraction_result = parse_with_gemini(clean_text, GEMINI_API_KEY, year)
             print(f"Successfully extracted {len(extraction_result.winners)} Cannes Lions {year} Grand Prix winners.")
+            
+            # Run evaluations
+            run_evaluations(extraction_result, year)
             
             # 4. Save to SQLite
             save_to_db(extraction_result, target_url)
