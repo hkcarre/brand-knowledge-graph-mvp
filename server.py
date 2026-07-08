@@ -269,6 +269,41 @@ HTML_LAYOUT = """
 </html>
 """
 
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt(request: Request):
+    base_url = str(request.base_url).rstrip("/")
+    return f"""User-agent: *
+Allow: /
+
+Sitemap: {base_url}/sitemap.xml
+"""
+
+@app.get("/sitemap.xml")
+async def sitemap_xml(request: Request):
+    base_url = str(request.base_url).rstrip("/")
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    brands = cursor.execute("SELECT slug FROM brands").fetchall()
+    conn.close()
+    
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    
+    # Core pages
+    xml += f'  <url><loc>{base_url}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n'
+    xml += f'  <url><loc>{base_url}/campaigns</loc><changefreq>daily</changefreq><priority>0.9</priority></url>\n'
+    xml += f'  <url><loc>{base_url}/dashboard</loc><changefreq>hourly</changefreq><priority>0.5</priority></url>\n'
+    
+    # Brand pages
+    for brand in brands:
+        slug = brand['slug']
+        xml += f'  <url><loc>{base_url}/brands/{slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n'
+        xml += f'  <url><loc>{base_url}/brands/{slug}.md</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n'
+        xml += f'  <url><loc>{base_url}/brands/{slug}.json</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>\n'
+        
+    xml += '</urlset>'
+    return PlainTextResponse(xml, media_type="application/xml")
+
 @app.get("/", response_class=HTMLResponse)
 async def directory_page(request: Request):
     """Renders the main directory page, showcasing brands and their award-winning campaigns."""
