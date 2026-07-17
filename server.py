@@ -86,6 +86,8 @@ def get_db_connection():
 def log_crawler(request: Request, brand_id: Optional[str] = None):
     """Intercepts requests, identifies if they are AI crawlers, and logs them."""
     user_agent = request.headers.get("user-agent", "").lower()
+    if "cron-job" in user_agent:
+        return
     ip_address = request.client.host if request.client else "127.0.0.1"
     path = str(request.url.path)
     
